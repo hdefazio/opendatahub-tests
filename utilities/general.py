@@ -185,6 +185,23 @@ def create_isvc_label_selector_str(isvc: InferenceService, resource_type: str, r
 
     else:
         raise ValueError(f"Unknown deployment mode {deployment_mode}")
+    
+    
+def create_llm_isvc_label_selector_str(isvc: LLMInferenceService, resource_type: str) -> str:
+    """
+    Creates a label selector string for the given LLMInferenceService.
+
+    Args:
+        isvc (LLMInferenceService): LLMInferenceService object.
+        resource_type (str): The type of resource to select (e.g., 'pod', 'deployment').
+                             Note: This is currently unused but kept for API consistency.
+
+    Returns:
+        str: Label selector string for LLM-D workloads.
+    """
+    # NOTE: You will need to verify the exact label key used by the LLM-D controller.
+    # It is likely the API Group + the kind of the resource.
+    return f"llm.opendatahub.io/inferenceservice={isvc.name}"
 
 
 def get_pod_images(pod: Pod) -> List[str]:

@@ -124,6 +124,36 @@ def kueue_raw_inference_service(
     ) as isvc:
         yield isvc
 
+@pytest.fixture
+def kueue_llm_inference_service(request, unprivileged_model_namespace):
+    """
+    Fixture to create, manage, and clean up an LLMInferenceService for Kueue tests.
+    """
+    # 1. SETUP: Get the parameters from the @pytest.mark.parametrize decorator
+    params = request.param
+    llm_isvc_name = params.get("name")
+    min_replicas = params.get("min-replicas")
+    max_replicas = params.get("max-replicas")
+    labels = params.get("labels")
+    model_name = params.get("model-name")
+    resources = params.get("resources")
+
+    # 2. CREATE THE RESOURCE: Instantiate and create the LLMInferenceService
+    llm_isvc = LLMInferenceService(
+        name=llm_isvc_name,
+        namespace=unprivileged_model_namespace.name,
+        min_replicas=min_replicas,
+        max_replicas=max_replicas,
+        labels=labels,
+        model_name=model_name,
+        resources=resources,
+    )
+    llm_isvc.create()
+    print(f"Created LLMInferenceService: {llm_isvc.name}")
+
+    # 3. YIELD THE OBJECT TO THE TEST: The test runs at this point
+    yield llm_isvc
+
 
 @pytest.fixture(scope="class")
 def kueue_kserve_inference_service(

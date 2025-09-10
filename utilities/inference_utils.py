@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 from kubernetes.dynamic import DynamicClient
 from ocp_resources.inference_graph import InferenceGraph
 from ocp_resources.inference_service import InferenceService
+from ocp_resources.llmd import LLMInferenceService
 from ocp_resources.resource import get_client
 from ocp_resources.service import Service
 from pyhelper_utils.shell import run_command
@@ -760,6 +761,73 @@ def create_isvc(
 
         yield inference_service
 
+@contextmanager
+def create_llm_isvc(
+    client: DynamicClient,
+    name: str,
+    namespace: str,
+    model_name: str,
+    wait: bool = True,
+    min_replicas: int | None = None,
+    max_replicas: int | None = None,
+    resources: dict[str, Any] | None = None,
+    labels: dict[str, str] | None = None,
+    timeout: int = Timeout.TIMEOUT_15MIN,
+    teardown: bool = True,
+) -> Generator[LLMInferenceService, Any, Any]:
+    """
+    Create LLMInferenceService object.
+
+    Args:
+        client (DynamicClient): The Kubernetes dynamic client.
+        name (str): The name of the LLMInferenceService.
+        namespace (str): The namespace to create the service in.
+        model_name (str): The name of the large language model to serve.
+        wait (bool): If True, wait for the service to become Ready.
+        min_replicas (int, optional): The minimum number of replicas.
+        max_replicas (int, optional): The maximum number of replicas.
+        resources (dict[str, Any], optional): The resource requests and limits.
+        labels (dict[str, str], optional): Labels to apply to the service.
+        timeout (int): The timeout in seconds to wait for readiness.
+        teardown (bool): If True, delete the service after the test.
+
+    Yields:
+        LLMInferenceService: The created LLMInferenceService object.
+    """
+    if labels is None:
+        labels = {}
+
+    # The spec for LLMInferenceService is much simpler.
+    # It primarily requires the model name and resource configuration.
+    llm_isvc_spec: dict[str, Any] = {
+        "model": {"name": model_name},
+    }
+
+    if min_replicas is not None:
+        llm_isvc_spec["minReplicas"] = min_replicas
+    if max_replicas is not None:
+        llm_isvc_spec["maxReplicas"] = max_replicas
+    if resources:
+        llm_isvc_spec["resources"] = resources
+
+    # Create the LLMInferenceService using a resource class (similar to the existing InferenceService class)
+    with LLMInferenceService(
+        client=client,
+        name=name,
+        namespace=namespace,
+        spec=llm_isvc_spec,
+        label=labels,
+        teardown=teardown,
+    ) as llm_inference_service:
+        # The waiting logic is simpler as we just need to check for the 'Ready' condition.
+        if wait:
+            llm_inference_service.wait_for_condition(
+                condition=llm_inference_service.Condition.READY,
+                status=llm_inference_service.Condition.Status.TRUE,
+                timeout=timeout,
+            )
+
+        yield llm_inference_service
 
 def _check_storage_arguments(
     storage_uri: Optional[str],
